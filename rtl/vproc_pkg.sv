@@ -358,6 +358,7 @@ typedef struct packed {
     op_mode_cfg  cfg;
     op_mode_div  div;
     op_mode_fpu  fpu;
+    // TODO: Add op_mode_vbf16
 } op_mode;
 
 // source register type:
