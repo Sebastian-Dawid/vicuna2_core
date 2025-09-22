@@ -1,0 +1,6 @@
+[verilog]
+include_paths = ["sva"]
+defines = []
+
+[option]
+linter = true
