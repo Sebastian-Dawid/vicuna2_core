@@ -1316,6 +1316,11 @@ module vproc_decoder #(
                             vxrm_o                = VXRM_RDN;
                             widenarrow_o          = OP_WIDENING;
                         end
+			{6'b111011, 3'b001},        // vfwmaccbf16 VV
+			{6'b111011, 3'b101}: begin  // vfwmaccbf16 VF
+			    widenarrow_o = OP_WIDENING;
+			    instr_illegal = 1'b1;
+		        end
                         {6'b111100, 3'b010},        // vwmaccu VV
                         {6'b111100, 3'b110}: begin  // vwmaccu VX
                             unit_o                = UNIT_MUL;
@@ -1767,7 +1772,7 @@ module vproc_decoder #(
                                     instr_illegal       = 1'b0;
                                     mode_o.fpu.rnd_mode   = RNE;//TODO: Think this is hard coded
                                 end
-                                 5'b00110: begin          //fcvt.rtz.xu.f
+                                5'b00110: begin          //fcvt.rtz.xu.f
                                     mode_o.fpu.op         = F2I;
                                     mode_o.fpu.op_mod     = 1'b1;
                                     widenarrow_o          = OP_SINGLEWIDTH;
@@ -1783,6 +1788,14 @@ module vproc_decoder #(
                                     instr_illegal       = 1'b0;
                                     mode_o.fpu.rnd_mode   = RTZ;//TODO: Think this is hard coded
                                 end
+			        5'b11101: begin            // vfncvtbf16.f.f.w
+				    widenarrow_o = OP_NARROWING;
+			            instr_illegal      = 1'b1;
+			        end
+			        5'b01101: begin            // vfwcvtbf16.f.f.v
+				    widenarrow_o = OP_WIDENING_VS2;
+			            instr_illegal      = 1'b1;
+			        end
 
                                 default : begin
                                     instr_illegal       = 1'b1;
