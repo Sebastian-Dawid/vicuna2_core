@@ -107,12 +107,13 @@ typedef enum logic [2:0] {
     UNIT_FPU,
     UNIT_SLD,
     UNIT_ELEM,
+    UNIT_BF,
     // pseudo-units (used for instructions that require no unit):
     UNIT_CFG
 } op_unit;
 
 // The number of different types of execution units (excludes pseudo-units)
-parameter int unsigned UNIT_CNT = 7;
+parameter int unsigned UNIT_CNT = 8;
 
 typedef enum logic [1:0] {
     COUNT_INC_1,

@@ -734,5 +734,10 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
                 end
             end
         end
+        else if (UNIT == UNIT_BF) begin
+            // TODO: Instantiate the bfloat unit here
+            logic example_signal;
+        end
+        // TODO: Add new units here to pipeline
     endgenerate
 endmodule
