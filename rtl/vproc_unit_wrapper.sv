@@ -830,6 +830,10 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
             assign pipe_out_pend_clear_cnt_o = '0;
             assign pipe_out_instr_done_o     = unit_out_ctrl.last_cycle;
         end
+        else if (UNIT == UNIT_BF) begin
+            // TODO: Instantiate the bfloat unit here
+            logic example_signal;
+        end
         // TODO: Add new units here to pipeline
     endgenerate
 endmodule

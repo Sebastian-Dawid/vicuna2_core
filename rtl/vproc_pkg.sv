@@ -107,6 +107,7 @@ typedef enum logic [3:0] {
     UNIT_FPU,
     UNIT_SLD,
     UNIT_ELEM,
+    UNIT_BF,
     UNIT_ZVBB,
     UNIT_ZVBC,
     // pseudo-units (used for instructions that require no unit):
