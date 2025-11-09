@@ -23,12 +23,12 @@
 
 VPROC_CONFIG_PKG ?= vproc_config.sv
 
-VPROC_CONFIG ?= compact
+VPROC_CONFIG ?= bf16
 ifeq ($(VPROC_CONFIG), compact)
   VPORT_POLICY    ?= some
   VMEM_W          ?= 32
   VREG_W          ?= $(VREG_W)
-  VPROC_PIPELINES ?= $(VMEM_W):VLSU,VALU,VMUL,VSLD,VELEM,VBF
+  VPROC_PIPELINES ?= $(VMEM_W):VLSU,VALU,VMUL,VSLD,VELEM
 else
 ifeq ($(VPROC_CONFIG), dual)
   VPORT_POLICY    ?= some
@@ -48,6 +48,12 @@ ifeq ($(VPROC_CONFIG), dual-zve32f)
   VREG_W          ?= $(VREG_W)
   VPROC_PIPELINES ?= $(VMEM_W):VLSU,VELEM $(VLANE_W):VMUL,VALU,VSLD,VDIV,VFPU
 else
+ifeq ($(VPROC_CONFIG), bf16)
+  VPORT_POLICY    ?= some
+  VMEM_W          ?= 32
+  VREG_W          ?= $(VREG_W)
+  VPROC_PIPELINES ?= $(VMEM_W):VLSU,VELEM $(VLANE_W):VMUL,VALU,VSLD,VDIV,VFPU,VBF
+else
 ifeq ($(VPROC_CONFIG), triple)
   VPORT_POLICY    ?= some
   VMEM_W          ?= 32
@@ -62,6 +68,7 @@ ifeq ($(VPROC_CONFIG), legacy)
                                     $(VPIPE_W_DFLT):VSLD 32:VELEM
 else
 $(error Unknown vector coprocessor configuration $(VPROC_CONFIG))
+endif
 endif
 endif
 endif
