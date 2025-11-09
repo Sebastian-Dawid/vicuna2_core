@@ -24,12 +24,16 @@ message(STATUS "CMake Version ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CM
 
 
 
-#Currently Supported: rv32im_zve32x, rv32imf_zve32f, rv32imf_zfh_zve32f_zvfh
-#Defaults are overwritten with user configurations defined on command line
+# Currently Supported: rv32im_zve32x, rv32imf_zve32f, rv32imf_zfh_zve32f_zvfh
+# Defaults are overwritten with user configurations defined on command line
+if (NOT RISCV_ARCH)
 set(RISCV_ARCH rv32im_zve32x CACHE STRING "Specify the configuration")
+endif()
 set(VREG_W 128 CACHE STRING "VREG_W")
 set(VMEM_W 32 CACHE STRING "VMEM_W")
 set(VLANE_W 32 CACHE STRING "VLANE_W")
+
+message("${RISCV_ARCH}")
 
 ##############
 # Configuration Selection
@@ -46,6 +50,12 @@ elseif(${RISCV_ARCH} STREQUAL "rv32imf_zve32f")
     set(RISCV_ZVE32F "-DRISCV_ZVE32F" )
     set(RISCV_ZVFH "" )
     set(VPROC_CONFIG dual-zve32f)
+
+elseif(${RISCV_ARCH} STREQUAL "rv32imf_zve32f_zvfbfmin1p0_zvfbfwma1p0")
+    set(RISCV_ZVE32X "-DRISCV_ZVE32X" )
+    set(RISCV_ZVE32F "-DRISCV_ZVE32F" )
+    set(RISCV_ZVFH "" )
+    set(VPROC_CONFIG bf16)
     
 elseif(${RISCV_ARCH} STREQUAL "rv32imf_zfh_zve32f_zvfh") #Build CV32E40X with Vicuna (+floating point + half precision float) and FPU on the Xif interface
     set(RISCV_ZVE32X "-DRISCV_ZVE32X" )
@@ -81,6 +91,7 @@ set(VICUNA_SOURCE   ${DESIGN_RTL_DIR_VICUNA}/vproc_pkg.sv                       
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_vregpack.sv
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_vregunpack.sv
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_alu.sv
+                    ${DESIGN_RTL_DIR_VICUNA}/vproc_bf16.sv
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_decoder.sv
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_dispatcher.sv
                     ${DESIGN_RTL_DIR_VICUNA}/vproc_div.sv
