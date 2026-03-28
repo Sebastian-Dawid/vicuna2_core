@@ -1,3 +1,7 @@
+// Copyright Bielefeld University
+// Licensed under the Solderpad Hardware License v2.1, see LICENSE.txt for details
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+
 module vproc_bf16 #(
     parameter int unsigned BF16_OP_W = 64,    // ALU operand width in bits
     parameter type CTRL_T            = logic,
@@ -25,9 +29,11 @@ module vproc_bf16 #(
     output logic  [BF16_OP_W/8-1:0] pipe_out_mask_o
 );
 
-  import vproc_pkg::*;
+    import vproc_pkg::*;
 
-  assign pipe_out_valid_o = 1;
-  assign pipe_in_ready_o = 1;
+    logic state_res_ready;
+
+    assign pipe_out_valid_o = 1;
+    assign pipe_in_ready_o = 1;
 
 endmodule

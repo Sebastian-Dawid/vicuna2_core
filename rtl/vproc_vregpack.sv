@@ -404,7 +404,6 @@ module vproc_vregpack #(
                         end
                      `endif
 
-                    
                 end
 
             end

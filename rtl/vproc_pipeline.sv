@@ -1168,7 +1168,7 @@ module vproc_pipeline import vproc_pkg::*; #(
         .trans_complete_exccode_o  ( trans_complete_exccode_o ),
         `ifdef RISCV_ZVE32F
         .freg_res                  ( freg_res                 ),
-        `endif 
+        `endif
         .xreg_valid_o              ( xreg_valid_o             ),
         .xreg_ready_i              ( xreg_ready_i             ),
         .xreg_id_o                 ( xreg_id_o                ),

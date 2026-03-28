@@ -831,8 +831,8 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
             assign pipe_out_instr_done_o     = unit_out_ctrl.last_cycle;
         end
         else if (UNIT == UNIT_BF) begin
-            // TODO: Instantiate the bfloat unit here
-            logic example_signal;
+            CTRL_T                 unit_out_ctrl;
+
             vproc_bf16 #(
                 .BF16_OP_W          ( MAX_OP_W                                    ),
                 .CTRL_T             ( CTRL_T                                      ),
@@ -850,10 +850,15 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
                 .pipe_out_valid_o   ( pipe_out_valid_o                            ),
                 .pipe_out_ready_i   ( pipe_out_ready_i                            ),
                 .pipe_out_ctrl_o    ( unit_out_ctrl                               ),
-                .pipe_out_res_alu_o ( unit_out_res_alu                            ),
-                .pipe_out_res_cmp_o ( unit_out_res_cmp                            ),
-                .pipe_out_mask_o    ( unit_out_mask                               )
+                .pipe_out_res_alu_o ( ),
+                .pipe_out_res_cmp_o ( ),
+                .pipe_out_mask_o    ( )
             );
+            always_comb begin
+                pipe_out_instr_id_o = unit_out_ctrl.id;
+                pipe_out_eew_o      = unit_out_ctrl.eew;
+                pipe_out_vaddr_o    = unit_out_ctrl.res_vaddr;
+            end
         end
         // TODO: Add new units here to pipeline
     endgenerate
