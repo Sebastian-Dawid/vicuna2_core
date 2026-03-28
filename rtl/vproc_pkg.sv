@@ -250,7 +250,7 @@ typedef struct packed {
 //   ROD = 3'b101,  // This mode is not defined in RISC-V FP-SPEC
 //   DYN = 3'b111
 //} fpu_roundmode_e;
- 
+
 typedef struct packed {
     logic       masked;
     fpnew_pkg::operation_e    op;
@@ -345,6 +345,19 @@ typedef struct packed {
     logic       keep_vl;
 } op_mode_cfg;
 
+// BF16 Structs
+
+typedef enum logic[1:0] {
+    VBF16_NCVT,
+    VBF16_WCVT,
+    VBF16_MACC
+} opcode_vbf16;
+
+typedef struct packed {
+    opcode_vbf16 op;
+    logic [15:0] padding;
+} op_mode_vbf16;
+
 `ifdef VPROC_OP_MODE_UNION
 typedef union packed {
     logic [12:0]  unused;
@@ -359,6 +372,7 @@ typedef struct packed {
     op_mode_cfg  cfg;
     op_mode_div  div;
     op_mode_fpu  fpu;
+    op_mode_vbf16 vbf16;
 } op_mode;
 
 // source register type:
