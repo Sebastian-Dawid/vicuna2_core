@@ -24,16 +24,55 @@ module vproc_bf16 #(
     output logic                    pipe_out_valid_o,
     input  logic                    pipe_out_ready_i,
     output CTRL_T                   pipe_out_ctrl_o,
-    output logic  [BF16_OP_W  -1:0] pipe_out_res_alu_o,
-    output logic  [BF16_OP_W/8-1:0] pipe_out_res_cmp_o,
+    output logic  [BF16_OP_W  -1:0] pipe_out_res_o,
     output logic  [BF16_OP_W/8-1:0] pipe_out_mask_o
 );
 
     import vproc_pkg::*;
 
-    logic state_res_ready;
+    logic state_ready;
+    logic state_valid_q, state_valid_d;
+    CTRL_T state_q, state_d;
 
-    assign pipe_out_valid_o = 1;
-    assign pipe_in_ready_o = 1;
+    logic [BF16_OP_W  -1:0] op1_q, op1_d;
+    logic [BF16_OP_W  -1:0] op2_q, op2_d;
+    logic [BF16_OP_W  -1:0] res_q, res_d;
+    logic [BF16_OP_W/8-1:0] mask = {default: '0};
 
+    assign state_valid_d = pipe_in_valid_i;
+    assign state_d = pipe_in_ctrl_i;
+    assign op1_d = pipe_in_op1_i;
+    assign op2_d = pipe_in_op2_i;
+
+    always @(posedge clk_i or negedge async_rst_ni) begin
+        if (~async_rst_ni) begin
+            state_valid_q <= 1'b0;
+        end else if (~sync_rst_ni) begin
+            state_valid_q <= 1'b0;
+        end else if (state_ready) begin
+            state_valid_q <= state_valid_d;
+        end
+        state_q <= state_d;
+        op1_q <= op1_d;
+        op2_q <= op2_d;
+        res_q <= res_d;
+    end
+    assign state_ready = ~state_valid_q | pipe_out_ready_i;
+
+    assign pipe_in_ready_o = state_ready;
+    assign pipe_out_valid_o = state_valid_q;
+    assign pipe_out_ctrl_o = state_q;
+
+    assign pipe_out_res_o = res_q;
+    assign pipe_out_mask_o = mask;
+
+    // TODO: Actual unit logic
+    // Switch over instructions
+    // Differentiate between FP32 and BF16 inputs/outputs
+
+    always_comb begin
+        res_d[BF16_OP_W-1:BF16_OP_W/2] = op2_d[BF16_OP_W-1:BF16_OP_W/2];
+        res_d[BF16_OP_W/2-1:0] = {default: '0};
+        mask = 'b1100;
+    end
 endmodule

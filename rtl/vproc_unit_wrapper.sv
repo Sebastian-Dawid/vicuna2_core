@@ -832,6 +832,8 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
         end
         else if (UNIT == UNIT_BF) begin
             CTRL_T                 unit_out_ctrl;
+            logic [MAX_OP_W  -1:0] unit_out_res = '0;
+            logic [MAX_OP_W/8-1:0] unit_out_mask = '0;
 
             vproc_bf16 #(
                 .BF16_OP_W          ( MAX_OP_W                                    ),
@@ -850,15 +852,33 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
                 .pipe_out_valid_o   ( pipe_out_valid_o                            ),
                 .pipe_out_ready_i   ( pipe_out_ready_i                            ),
                 .pipe_out_ctrl_o    ( unit_out_ctrl                               ),
-                .pipe_out_res_alu_o ( ),
-                .pipe_out_res_cmp_o ( ),
-                .pipe_out_mask_o    ( )
+                .pipe_out_res_o     ( unit_out_res                                ),
+                .pipe_out_mask_o    ( unit_out_mask                               )
             );
             always_comb begin
-                pipe_out_instr_id_o = unit_out_ctrl.id;
-                pipe_out_eew_o      = unit_out_ctrl.eew;
-                pipe_out_vaddr_o    = unit_out_ctrl.res_vaddr;
+                pipe_out_instr_id_o       = unit_out_ctrl.id;
+                pipe_out_eew_o            = 2'b01;
+                pipe_out_vaddr_o          = unit_out_ctrl.res_vaddr;
+
+                pipe_out_res_store_o = '0;
+                pipe_out_res_valid_o = '0;
+                pipe_out_res_flags_o = '{default: pack_flags'('0)};
+                pipe_out_res_data_o  = '0;
+                pipe_out_res_mask_o  = '0;
+
+                pipe_out_res_store_o[0]                 = unit_out_ctrl.res_store;
+                pipe_out_res_flags_o[0].shift           = unit_out_ctrl.res_shift;
+                pipe_out_res_flags_o[0].narrow          = unit_out_ctrl.res_narrow[0];
+                pipe_out_res_flags_o[0].saturate        = '0;
+                pipe_out_res_flags_o[0].sig             = '0;
+                pipe_out_res_valid_o[0]                 = pipe_out_valid_o;
+                pipe_out_res_data_o [0]                 = unit_out_res;
+                pipe_out_res_mask_o [0][MAX_OP_W/8-1:0] = unit_out_mask;
+                pipe_out_res_flags_o[0].vreg_idx        = unit_out_ctrl.vreg_idx;
             end
+            assign pipe_out_pend_clear_o     = unit_out_ctrl.res_store;
+            assign pipe_out_pend_clear_cnt_o = '0;
+            assign pipe_out_instr_done_o     = unit_out_ctrl.last_cycle;
         end
         // TODO: Add new units here to pipeline
     endgenerate

@@ -23,7 +23,7 @@
 
 VPROC_CONFIG_PKG ?= vproc_config.sv
 
-VPROC_CONFIG ?= bf16
+VPROC_CONFIG ?= compact
 ifeq ($(VPROC_CONFIG), compact)
   VPORT_POLICY    ?= some
   VMEM_W          ?= 32
