@@ -4,11 +4,10 @@
 
 module vproc_bf16 #(
     parameter int unsigned BF16_OP_W = 64,    // ALU operand width in bits
-    parameter type CTRL_T            = logic,
+    parameter type CTRL_T            = logic
     // parameter bit BUF_OPERANDS       = 1'b1,  // insert pipeline stage after operand extraction
     // parameter bit BUF_INTERMEDIATE   = 1'b1,  // insert pipeline stage for intermediate results
-    // parameter bit BUF_RESULTS        = 1'b1,  // insert pipeline stage after computing result
-    parameter bit DONT_CARE_ZERO     = 1'b0   // initialize don't care values to zero
+    // parameter bit BUF_RESULTS        = 1'b1,  // insert pipeline stage after computing result parameter bit DONT_CARE_ZERO     = 1'b0   // initialize don't care values to zero
 ) (
     input logic clk_i,
     input logic async_rst_ni,
@@ -71,8 +70,8 @@ module vproc_bf16 #(
     // Differentiate between FP32 and BF16 inputs/outputs
 
     always_comb begin
-        res_d[BF16_OP_W-1:BF16_OP_W/2] = op2_d[BF16_OP_W-1:BF16_OP_W/2];
-        res_d[BF16_OP_W/2-1:0] = {default: '0};
-        mask = 'b1100;
+        res_d[BF16_OP_W-1:BF16_OP_W/2] = {default: '0};
+        res_d[BF16_OP_W/2-1:0] = op2_d[BF16_OP_W-1:BF16_OP_W/2];
+        mask = 'b0011;
     end
 endmodule

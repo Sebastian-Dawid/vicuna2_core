@@ -279,7 +279,7 @@ module vproc_div #(
             .result_o           ( div_out[32*g +: 32]           ),
 
             // divider enable, not affected by kill/halt
-            .div_en_i           ( 1'b1                          ), //
+            //.div_en_i           ( 1'b1                          ), //
 
             // Handshakes
             .valid_i            ( data_valid_i_q                        ), //comes from EX_VALID

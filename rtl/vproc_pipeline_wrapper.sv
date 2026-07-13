@@ -185,7 +185,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
 
     // result flags
     localparam bit RES0_ALWAYS_VREG       = ~UNITS[UNIT_LSU] & ~UNITS[UNIT_ALU] & ~UNITS[UNIT_ELEM];
-    localparam bit RES0_NARROW            = UNITS[UNIT_ALU];//Might need to add FPU HERE from conversion ops
+    localparam bit RES0_NARROW            = UNITS[UNIT_ALU] | UNITS[UNIT_BF];//Might need to add FPU HERE from conversion ops
     localparam bit RES0_ALLOW_ELEMWISE    = UNITS[UNIT_LSU] | UNITS[UNIT_ELEM] | UNITS[UNIT_FPU];
 
     // miscellaneous pipeline config
@@ -222,14 +222,15 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
     } state_t;
 
     // identify the unit of the supplied instruction
-    logic unit_lsu, unit_alu, unit_mul, unit_sld, unit_elem, unit_div, unit_fpu;
+    logic unit_lsu, unit_alu, unit_mul, unit_sld, unit_elem, unit_div, unit_fpu, unit_bf;
     assign unit_lsu  = UNITS[UNIT_LSU ] & (pipe_in_data_i.unit == UNIT_LSU );
     assign unit_alu  = UNITS[UNIT_ALU ] & (pipe_in_data_i.unit == UNIT_ALU );
     assign unit_mul  = UNITS[UNIT_MUL ] & (pipe_in_data_i.unit == UNIT_MUL );
     assign unit_sld  = UNITS[UNIT_SLD ] & (pipe_in_data_i.unit == UNIT_SLD );
     assign unit_elem = UNITS[UNIT_ELEM] & (pipe_in_data_i.unit == UNIT_ELEM);
-    assign unit_div  = UNITS[UNIT_DIV]  & (pipe_in_data_i.unit == UNIT_DIV);
-    assign unit_fpu  = UNITS[UNIT_FPU]  & (pipe_in_data_i.unit == UNIT_FPU);
+    assign unit_div  = UNITS[UNIT_DIV ] & (pipe_in_data_i.unit == UNIT_DIV);
+    assign unit_fpu  = UNITS[UNIT_FPU ] & (pipe_in_data_i.unit == UNIT_FPU);
+    assign unit_bf   = UNITS[UNIT_BF  ] & (pipe_in_data_i.unit == UNIT_BF);
 
     // identify the type of data that vs2 supplies for ELEM instructions
     logic elem_flush, elem_vs2_data, elem_vs2_mask, elem_vs2_dyn_addr;
@@ -524,7 +525,9 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
             state_init.op_flags[2].elemwise                 = pipe_in_data_i.mode.fpu.op_reduction;
             state_init.op_flags[(OP_CNT >= 3) ? 2 : 0].vreg = (pipe_in_data_i.mode.fpu.op == FMADD | pipe_in_data_i.mode.fpu.op == FNMSUB);
             state_init.op_vaddr[(OP_CNT >= 3) ? 2 : 0]      = pipe_in_data_i.rd.addr;
-
+         end
+         if (unit_bf) begin
+             state_init.res_narrow[0] = pipe_in_data_i.widenarrow == OP_NARROWING;
          end
     end
 

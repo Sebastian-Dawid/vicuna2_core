@@ -761,7 +761,7 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
             );
             always_comb begin
                 pipe_out_instr_id_o       = unit_out_ctrl.id;
-                pipe_out_eew_o            = 2'b01;
+                pipe_out_eew_o            = unit_out_ctrl.eew;
                 pipe_out_vaddr_o          = unit_out_ctrl.res_vaddr;
 
                 pipe_out_res_store_o = '0;

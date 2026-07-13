@@ -756,7 +756,7 @@ module vproc_pipeline import vproc_pkg::*; #(
         logic [4:0]                    res_vaddr;
         logic                          pend_load;
         logic                          pend_store;
-        logic                     [$clog2(VREG_W/MAX_OP_W)-1 :0] vreg_idx; //TODO: This should be defined per pipeline as log2(VREG_W/MAX_OP_W) bits wide.  Needed by PACK to write results to correct locations
+        logic                     [$clog2(VREG_W/8)-1 :0] vreg_idx;
     } ctrl_t;
 
     logic  unpack_valid;
@@ -764,7 +764,7 @@ module vproc_pipeline import vproc_pkg::*; #(
     always_comb begin
         unpack_valid                = state_valid_q & ~state_stall & ~state_wait_alt_count_q;
 
-        unpack_ctrl.vreg_idx = state_q.count >> $clog2(MAX_OP_W/COUNTER_OP_W); //TODO: Explicity truncate this vector (dropping upper bits is itentional behavior, causes loop to beginning after a vreg has been written)
+        unpack_ctrl.vreg_idx = state_q.count >> $clog2(MAX_OP_W/COUNTER_OP_W);
 
         unpack_ctrl.count_mul       = state_q.count.part.mul;
         unpack_ctrl.first_cycle     = state_q.first_cycle;

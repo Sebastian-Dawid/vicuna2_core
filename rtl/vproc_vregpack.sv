@@ -101,8 +101,8 @@ module vproc_vregpack #(
         stage_state_q <= stage_state_d;
     end
 
-    logic [RES_CNT-1:0][VPORT_W  -1:0] res_buffer, res_buffer_next;
-    logic [RES_CNT-1:0][VPORT_W/8-1:0] msk_buffer, msk_buffer_next;
+    logic [RES_CNT-1:0][VPORT_W  -1:0] res_buffer, res_buffer_next = { default: DONT_CARE_ZERO ? '0 : 'x };
+    logic [RES_CNT-1:0][VPORT_W/8-1:0] msk_buffer, msk_buffer_next = { default: DONT_CARE_ZERO ? '0 : 'x };
     assign res_buffer = stage_state_q.res_buffer;
     assign msk_buffer = stage_state_q.msk_buffer;
     always_comb begin
@@ -271,132 +271,161 @@ module vproc_vregpack #(
                 assign res_saturated[i] = '0;
 
             end else begin
-
-                logic [RES_W[i]  -1:0] res_default;
-                logic [RES_W[i]/8-1:0] msk_default;
+                //logic [RES_W[i]  -1:0] res_default;
+                //logic [RES_W[i]/8-1:0] msk_default;
+                //always_comb begin
+                //    res_default      = pipe_in_res_data_i[i][RES_W[i]  -1:0];
+                //    msk_default      = pipe_in_res_mask_i[i][RES_W[i]/8-1:0];
+                //    res_saturated[i] = '0;
+                //    //Changes to control flow to improve performance.  Introduces timing anomalies
+                //    //For the PACK unit, major changes to shifting partial inputs differently to allow for early stopping on instructions
+                //    `ifdef OLD_VICUNA
+                //        if ((RES_ALLOW_ELEMWISE[i] & pipe_in_res_flags_i[i].elemwise) | RES_ALWAYS_ELEMWISE[i]) begin
+                //        res_default = DONT_CARE_ZERO ? '0 : 'x;
+                //        msk_default = DONT_CARE_ZERO ? '0 : 'x;
+                //        unique case (pipe_in_eew_i)
+                //            VSEW_8: begin
+                //                res_default = {   pipe_in_res_data_i[i][7 :0], res_buffer[i][VPORT_W  -1:VPORT_W  -RES_W[i]  +8 ]};
+                //                msk_default = {   pipe_in_res_mask_i[i][0]   , msk_buffer[i][VPORT_W/8-1:VPORT_W/8-RES_W[i]/8+1 ]};
+                //                end
+                //            VSEW_16: begin
+                //                res_default = {   pipe_in_res_data_i[i][15:0], res_buffer[i][VPORT_W  -1:VPORT_W  -RES_W[i]  +16]};
+                //                msk_default = {{2{pipe_in_res_mask_i[i][0]}} , msk_buffer[i][VPORT_W/8-1:VPORT_W/8-RES_W[i]/8+2 ]};
+                //                
+                //            end
+                //            VSEW_32: begin
+                //                res_default =    {pipe_in_res_data_i[i][31:0], {RES_W[i]  -32{1'b0}}} | (res_buffer[i][VPORT_W  -1 -: RES_W[i]  ] >> 32);
+                //                msk_default = {{4{pipe_in_res_mask_i[i][0]}} , {RES_W[i]/8-4 {1'b0}}} | (msk_buffer[i][VPORT_W/8-1 -: RES_W[i]/8] >> 4 );
+                //            end
+                //            default: ;
+                //        endcase
+                //        end
+                //    `else
+                //        //Special Case Mask for Elemwise operations
+                //        if ((RES_ALLOW_ELEMWISE[i] & pipe_in_res_flags_i[i].elemwise) | RES_ALWAYS_ELEMWISE[i]) begin
+                //        msk_default = DONT_CARE_ZERO ? '0 : 'x;
+                //        unique case (pipe_in_eew_i)
+                //            VSEW_8: begin
+                //                msk_default =    1'b1;
+                //            end
+                //            VSEW_16: begin
+                //                msk_default =    2'b11;
+                //            end
+                //            VSEW_32: begin
+                //                msk_default =    4'b1111;
+                //            end
+                //            default: ;
+                //        endcase
+                //        end
+                //    `endif
+                //    else if (RES_NARROW[i] & pipe_in_res_flags_i[i].narrow) begin
+                //        res_default = DONT_CARE_ZERO ? '0 : 'x;
+                //        msk_default = DONT_CARE_ZERO ? '0 : 'x;
+                //        // lower half is filled with upper part of buffer
+                //        res_default[RES_W[i]/2 -1:0] = res_buffer[i][VPORT_W  -1 -: RES_W[i]/2 ];
+                //        msk_default[RES_W[i]/16-1:0] = msk_buffer[i][VPORT_W/8-1 -: RES_W[i]/16];
+                //        // upper half is filled with narrowed result data
+                //        unique case (pipe_in_eew_i)
+                //            VSEW_16: for (int j = 0; j < RES_W[i] / 16; j++) begin
+                //                res_default[RES_W[i]/2 +j*8  +: 8 ] =    pipe_in_res_data_i[i][j*16 +: 8 ];
+                //                msk_default[RES_W[i]/16+j         ] =    pipe_in_res_mask_i[i][j*2];
+                //                // saturate value
+                //                if (pipe_in_res_flags_i[i].saturate & (pipe_in_res_data_i[i][j*16+8  +: 8 ] != {8 {pipe_in_res_flags_i[i].sig & pipe_in_res_data_i[i][j*16+7 ]}})) begin
+                //                    res_default[RES_W[i]/2+j*8  +: 8 ] = pipe_in_res_flags_i[i].sig ? {pipe_in_res_data_i[i][j*16+15], {7 {~pipe_in_res_data_i[i][j*16+15]}}} : '1;
+                //                    res_saturated[i]                   = 1'b1;
+                //                end
+                //            end
+                //            VSEW_32: for (int j = 0; j < RES_W[i] / 32; j++) begin
+                //                res_default[RES_W[i]/2 +j*16 +: 16] =    pipe_in_res_data_i[i][j*32 +: 16];
+                //                msk_default[RES_W[i]/16+j*2  +: 2 ] = {2{pipe_in_res_mask_i[i][j*4]}};
+                //                // saturate value
+                //                if (pipe_in_res_flags_i[i].saturate & (pipe_in_res_data_i[i][j*32+16 +: 16] != {16{pipe_in_res_flags_i[i].sig & pipe_in_res_data_i[i][j*32+15]}})) begin
+                //                    res_default[RES_W[i]/2+j*16 +: 16] = pipe_in_res_flags_i[i].sig ? {pipe_in_res_data_i[i][j*32+31], {15{~pipe_in_res_data_i[i][j*32+31]}}} : '1;
+                //                    res_saturated[i]                   = 1'b1;
+                //                end
+                //            end
+                //            default: ;
+                //        endcase
+                //    end
+                //end
+                //always_comb begin
+                //    //Changes to control flow to improve performance.  Introduces timing anomalies
+                //    //For the PACK unit, major changes to shifting partial inputs differently to allow for early stopping on instructions
+                //    `ifdef OLD_VICUNA
+                //        // by default, retain current value for lower part and assign default value for upper part
+                //        res_buffer_next[i] = {res_default, res_buffer[i][VPORT_W  -RES_W[i]  -1:0]};
+                //        msk_buffer_next[i] = {msk_default, msk_buffer[i][VPORT_W/8-RES_W[i]/8-1:0]};
+                //        // shift signal shifts entire content right by the width of the result; full-size results
+                //        // shift every cycle
+                //        if ((~RES_MASK[i] & ~RES_NARROW[i] & ~RES_ALLOW_ELEMWISE[i] & ~RES_ALWAYS_ELEMWISE[i]) |
+                //            pipe_in_res_flags_i[i].shift
+                //        ) begin
+                //            res_buffer_next[i][VPORT_W  -RES_W[i]  -1:0] = res_buffer[i][VPORT_W  -1:RES_W[i]  ];
+                //            msk_buffer_next[i][VPORT_W/8-RES_W[i]/8-1:0] = msk_buffer[i][VPORT_W/8-1:RES_W[i]/8];
+                //        end
+                //    `else
+                //        //Copy entire buffer
+                //        res_buffer_next[i] = res_buffer[i][VPORT_W-1:0];
+                //        msk_buffer_next[i] = msk_buffer[i][VPORT_W/8-1:0];
+                //        //Shift signal used to signal the end of one full result, meaning res_default is complete.  Uses VREG_IDX to determine placement in buffer
+                //        if ((~RES_MASK[i] & ~RES_NARROW[i] & ~RES_ALLOW_ELEMWISE[i] & ~RES_ALWAYS_ELEMWISE[i]) |
+                //            pipe_in_res_flags_i[i].shift
+                //        ) begin
+                //            //clear buffer if this is the first result being written //TODO: This might cause issues when tail elements cannot be overwritten if the mask is not considered
+                //            unique case (pipe_in_res_flags_i[i].vreg_idx)
+                //                0: begin
+                //                    res_buffer_next[i] = res_default;
+                //                    msk_buffer_next[i] = msk_default;
+                //                end
+                //                default: begin
+                //                    res_buffer_next[i] = res_buffer[i] | (res_default << ((pipe_in_res_flags_i[i].vreg_idx) * RES_W[i]));
+                //                    msk_buffer_next[i] = msk_buffer[i] | (msk_default << ((pipe_in_res_flags_i[i].vreg_idx) * RES_W[i]/8));
+                //                end
+                //            endcase
+                //        end
+                //     `endif
+                //end
+                localparam int unsigned IDX_W = $clog2(VPORT_W/8);
+                logic [IDX_W-1:0] idx;
+                vproc_pkg::cfg_vsew eew;
                 always_comb begin
-                    res_default      = pipe_in_res_data_i[i][RES_W[i]  -1:0];
-                    msk_default      = pipe_in_res_mask_i[i][RES_W[i]/8-1:0];
-                    res_saturated[i] = '0;
-
-                    //Changes to control flow to improve performance.  Introduces timing anomalies
-                    //For the PACK unit, major changes to shifting partial inputs differently to allow for early stopping on instructions
-                    `ifdef OLD_VICUNA
-                        if ((RES_ALLOW_ELEMWISE[i] & pipe_in_res_flags_i[i].elemwise) | RES_ALWAYS_ELEMWISE[i]) begin
-                        res_default = DONT_CARE_ZERO ? '0 : 'x;
-                        msk_default = DONT_CARE_ZERO ? '0 : 'x;
-                        unique case (pipe_in_eew_i)
-                            VSEW_8: begin
-                                res_default = {   pipe_in_res_data_i[i][7 :0], res_buffer[i][VPORT_W  -1:VPORT_W  -RES_W[i]  +8 ]};
-                                msk_default = {   pipe_in_res_mask_i[i][0]   , msk_buffer[i][VPORT_W/8-1:VPORT_W/8-RES_W[i]/8+1 ]};
-
-                                end
+                    // index in byte-space; converted to element space index by truncating in case statement
+                    idx = pipe_in_res_flags_i[i].vreg_idx;
+                    // band-aid fix for narrowing ops
+                    eew = pipe_in_eew_i;
+                    if (pipe_in_res_flags_i[i].narrow) begin
+                        unique case (eew)
                             VSEW_16: begin
-                                res_default = {   pipe_in_res_data_i[i][15:0], res_buffer[i][VPORT_W  -1:VPORT_W  -RES_W[i]  +16]};
-                                msk_default = {{2{pipe_in_res_mask_i[i][0]}} , msk_buffer[i][VPORT_W/8-1:VPORT_W/8-RES_W[i]/8+2 ]};
-                                
+                                eew = VSEW_8;
                             end
                             VSEW_32: begin
-                                res_default =    {pipe_in_res_data_i[i][31:0], {RES_W[i]  -32{1'b0}}} | (res_buffer[i][VPORT_W  -1 -: RES_W[i]  ] >> 32);
-                                msk_default = {{4{pipe_in_res_mask_i[i][0]}} , {RES_W[i]/8-4 {1'b0}}} | (msk_buffer[i][VPORT_W/8-1 -: RES_W[i]/8] >> 4 );
-                            end
-                            default: ;
-                        endcase
-                        end
-                    `else
-                        //Special Case Mask for Elemwise operations
-                        if ((RES_ALLOW_ELEMWISE[i] & pipe_in_res_flags_i[i].elemwise) | RES_ALWAYS_ELEMWISE[i]) begin
-                        msk_default = DONT_CARE_ZERO ? '0 : 'x;
-                        unique case (pipe_in_eew_i)
-                            VSEW_8: begin
-                                msk_default =    1'b1;
-                            end
-                            VSEW_16: begin
-                                msk_default =    2'b11;
-                            end
-                            VSEW_32: begin
-                                msk_default =    4'b1111;
-                            end
-                            default: ;
-                        endcase
-                        end
-                    `endif
-
-
-                    else if (RES_NARROW[i] & pipe_in_res_flags_i[i].narrow) begin
-                        res_default = DONT_CARE_ZERO ? '0 : 'x;
-                        msk_default = DONT_CARE_ZERO ? '0 : 'x;
-                        // lower half is filled with upper part of buffer
-                        res_default[RES_W[i]/2 -1:0] = res_buffer[i][VPORT_W  -1 -: RES_W[i]/2 ];
-                        msk_default[RES_W[i]/16-1:0] = msk_buffer[i][VPORT_W/8-1 -: RES_W[i]/16];
-                        // upper half is filled with narrowed result data
-                        unique case (pipe_in_eew_i)
-                            VSEW_16: for (int j = 0; j < RES_W[i] / 16; j++) begin
-                                res_default[RES_W[i]/2 +j*8  +: 8 ] =    pipe_in_res_data_i[i][j*16 +: 8 ];
-                                msk_default[RES_W[i]/16+j         ] =    pipe_in_res_mask_i[i][j*2];
-                                // saturate value
-                                if (pipe_in_res_flags_i[i].saturate & (pipe_in_res_data_i[i][j*16+8  +: 8 ] != {8 {pipe_in_res_flags_i[i].sig & pipe_in_res_data_i[i][j*16+7 ]}})) begin
-                                    res_default[RES_W[i]/2+j*8  +: 8 ] = pipe_in_res_flags_i[i].sig ? {pipe_in_res_data_i[i][j*16+15], {7 {~pipe_in_res_data_i[i][j*16+15]}}} : '1;
-                                    res_saturated[i]                   = 1'b1;
-                                end
-                            end
-                            VSEW_32: for (int j = 0; j < RES_W[i] / 32; j++) begin
-                                res_default[RES_W[i]/2 +j*16 +: 16] =    pipe_in_res_data_i[i][j*32 +: 16];
-                                msk_default[RES_W[i]/16+j*2  +: 2 ] = {2{pipe_in_res_mask_i[i][j*4]}};
-                                // saturate value
-                                if (pipe_in_res_flags_i[i].saturate & (pipe_in_res_data_i[i][j*32+16 +: 16] != {16{pipe_in_res_flags_i[i].sig & pipe_in_res_data_i[i][j*32+15]}})) begin
-                                    res_default[RES_W[i]/2+j*16 +: 16] = pipe_in_res_flags_i[i].sig ? {pipe_in_res_data_i[i][j*32+31], {15{~pipe_in_res_data_i[i][j*32+31]}}} : '1;
-                                    res_saturated[i]                   = 1'b1;
-                                end
+                                eew = VSEW_16;
                             end
                             default: ;
                         endcase
                     end
-                end
-
-
-
-
-                always_comb begin
-
-                    //Changes to control flow to improve performance.  Introduces timing anomalies
-                    //For the PACK unit, major changes to shifting partial inputs differently to allow for early stopping on instructions
-                    `ifdef OLD_VICUNA
-                        // by default, retain current value for lower part and assign default value for upper part
-                        res_buffer_next[i] = {res_default, res_buffer[i][VPORT_W  -RES_W[i]  -1:0]};
-                        msk_buffer_next[i] = {msk_default, msk_buffer[i][VPORT_W/8-RES_W[i]/8-1:0]};
-                        // shift signal shifts entire content right by the width of the result; full-size results
-                        // shift every cycle
-                        if ((~RES_MASK[i] & ~RES_NARROW[i] & ~RES_ALLOW_ELEMWISE[i] & ~RES_ALWAYS_ELEMWISE[i]) |
-                            pipe_in_res_flags_i[i].shift
-                        ) begin
-                            res_buffer_next[i][VPORT_W  -RES_W[i]  -1:0] = res_buffer[i][VPORT_W  -1:RES_W[i]  ];
-                            msk_buffer_next[i][VPORT_W/8-RES_W[i]/8-1:0] = msk_buffer[i][VPORT_W/8-1:RES_W[i]/8];
+                    unique case (eew)
+                        VSEW_8: begin
+                            res_buffer_next[i][idx * 8 +: 8] = pipe_in_res_data_i[i][7:0];
+                            msk_buffer_next[i][idx] = pipe_in_res_mask_i[i][0];
                         end
-                    `else
-                        //Copy entire buffer
-                        res_buffer_next[i] = res_buffer[i][VPORT_W-1:0];
-                        msk_buffer_next[i] = msk_buffer[i][VPORT_W/8-1:0];
-                        //Shift signal used to signal the end of one full result, meaning res_default is complete.  Uses VREG_IDX to determine placement in buffer
-                        if ((~RES_MASK[i] & ~RES_NARROW[i] & ~RES_ALLOW_ELEMWISE[i] & ~RES_ALWAYS_ELEMWISE[i]) |
-                            pipe_in_res_flags_i[i].shift
-                        ) begin
-                            //clear buffer if this is the first result being written //TODO: This might cause issues when tail elements cannot be overwritten if the mask is not considered
-                            unique case (pipe_in_res_flags_i[i].vreg_idx)
-                                0: begin
-                                    res_buffer_next[i] = res_default;
-                                    msk_buffer_next[i] = msk_default;
-                                end
-                                default: begin
-                                    res_buffer_next[i] = res_buffer[i] | (res_default << ((pipe_in_res_flags_i[i].vreg_idx) * RES_W[i]));
-                                    msk_buffer_next[i] = msk_buffer[i] | (msk_default << ((pipe_in_res_flags_i[i].vreg_idx) * RES_W[i]/8));
-                                end
-                            endcase
+                        VSEW_16: begin
+                            idx[IDX_W-1:$clog2(VPORT_W/16)] = {default: '0};
+                            res_buffer_next[i][idx * 16 +: 16] = pipe_in_res_data_i[i][15:0];
+                            msk_buffer_next[i][idx * 2 +: 2] = pipe_in_res_mask_i[i][1:0];
                         end
-                     `endif
-
+                        VSEW_32: begin
+                            idx[IDX_W-1:$clog2(VPORT_W/32)] = {default: '0};
+                            res_buffer_next[i][idx * 32 +: 32] = pipe_in_res_data_i[i][31:0];
+                            msk_buffer_next[i][idx * 4 +: 4] = pipe_in_res_mask_i[i][3:0];
+                        end
+                        default: begin
+                            idx[IDX_W-1:$clog2(VPORT_W/RES_W[i])] = {default: '0};
+                            res_buffer_next[i][idx * RES_W[i] +: RES_W[i]] = pipe_in_res_data_i[i][RES_W[i]-1:0];
+                            msk_buffer_next[i][idx * RES_W[i]/8 +: RES_W[i]/8] = pipe_in_res_mask_i[i][RES_W[i]/8 - 1:0];
+                        end
+                    endcase
                 end
-
             end
         end
     endgenerate

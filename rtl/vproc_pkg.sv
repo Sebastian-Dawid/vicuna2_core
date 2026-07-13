@@ -99,7 +99,7 @@ typedef enum logic [1:0] {
     VXRM_ROD = 2'b11    // round-to-odd
 } cfg_vxrm;
 
-typedef enum logic [2:0] {
+typedef enum logic [3:0] {
     UNIT_LSU,
     UNIT_ALU,
     UNIT_MUL,
@@ -355,7 +355,7 @@ typedef enum logic[1:0] {
 
 typedef struct packed {
     opcode_vbf16 op;
-    logic [15:0] padding;
+    logic [10:0] padding;
 } op_mode_vbf16;
 
 `ifdef VPROC_OP_MODE_UNION
