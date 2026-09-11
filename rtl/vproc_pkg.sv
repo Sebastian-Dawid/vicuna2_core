@@ -355,7 +355,8 @@ typedef enum logic[1:0] {
 
 typedef struct packed {
     opcode_vbf16 op;
-    logic [10:0] padding;
+    logic masked;
+    logic [9:0] padding;
 } op_mode_vbf16;
 
 `ifdef VPROC_OP_MODE_UNION

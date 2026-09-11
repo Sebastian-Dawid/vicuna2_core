@@ -1320,7 +1320,7 @@ module vproc_decoder #(
                         {6'b111011, 3'b101}: begin  // vfwmaccbf16 VF
                             unit_o = UNIT_BF;
                             mode_o.vbf16.op = VBF16_MACC;
-                            widenarrow_o = OP_WIDENING;
+                            mode_o.vbf16.masked = instr_masked;
                             instr_illegal = 1'b0;
                         end
                         {6'b111100, 3'b010},        // vwmaccu VV
@@ -1788,18 +1788,18 @@ module vproc_decoder #(
                                     instr_illegal       = 1'b0;
                                     mode_o.fpu.rnd_mode   = RTZ;//TODO: Think this is hard coded
                                 end
-                                5'b11101: begin            // vfncvtbf16.f.f.w
-                                    unit_o = UNIT_BF;
-                                    mode_o.vbf16.op = VBF16_NCVT;
-                                    widenarrow_o = OP_NARROWING;
-                                    instr_illegal      = 1'b0;
-                                end
-                                5'b01101: begin            // vfwcvtbf16.f.f.v
-                                    unit_o = UNIT_BF;
-                                    mode_o.vbf16.op = VBF16_WCVT;
-                                    widenarrow_o = OP_WIDENING_VS2;
-                                    instr_illegal      = 1'b0;
-                                end
+                                //5'b11101: begin            // vfncvtbf16.f.f.w
+                                //    unit_o = UNIT_BF;
+                                //    mode_o.vbf16.op = VBF16_NCVT;
+                                //    widenarrow_o = OP_NARROWING;
+                                //    instr_illegal      = 1'b0;
+                                //end
+                                //5'b01101: begin            // vfwcvtbf16.f.f.v
+                                //    unit_o = UNIT_BF;
+                                //    mode_o.vbf16.op = VBF16_WCVT;
+                                //    widenarrow_o = OP_WIDENING_VS2;
+                                //    instr_illegal      = 1'b0;
+                                //end
 
                                 default : begin
                                     instr_illegal       = 1'b1;
