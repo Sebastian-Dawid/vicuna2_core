@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 module vproc_bf16 #(
-    parameter int unsigned BF16_OP_W = 32,    // ALU operand width in bits
+    parameter int unsigned BF16_OP_W = 64,    // ALU operand width in bits
     parameter type CTRL_T            = logic,
     // parameter bit BUF_OPERANDS       = 1'b1,  // insert pipeline stage after operand extraction
     // parameter bit BUF_INTERMEDIATE   = 1'b1,  // insert pipeline stage for intermediate results
@@ -32,76 +32,125 @@ module vproc_bf16 #(
     import vproc_pkg::*;
 
     logic state_ready;
-    logic state_valid0_q, state_valid0_d;
-    logic state_valid1_q, state_valid1_d;
-    logic state_valid2_q, state_valid2_d;
+    logic state_valid_q, state_valid_d;
+    CTRL_T state_q, state_d;
 
-    CTRL_T state0_q, state0_d;
-    CTRL_T state1_q, state1_d;
-    CTRL_T state2_q, state2_d;
-
-    logic [BF16_OP_W  -1:0] op1_q, op1_d;
-    logic [BF16_OP_W  -1:0] op2_q, op2_d;
-    logic [BF16_OP_W  -1:0] op3_q, op3_d;
+    logic [BF16_OP_W  -1:0] vs1_q, vs1_d;
+    logic [BF16_OP_W  -1:0] vs2_q, vs2_d;
+    logic [BF16_OP_W  -1:0] vd_q, vd_d;
     logic [BF16_OP_W  -1:0] res_q, res_d;
-    logic [BF16_OP_W/8-1:0] mask = {default: '0};
+    logic [BF16_OP_W/8-1:0] mask;
 
-    localparam COUNT = BF16_OP_W/16;
-    logic [31:0] intermediate0_q [COUNT-1:0], intermediate0_d [COUNT-1:0];
-    logic [16:0] intermediate1_q [COUNT-1:0], intermediate1_d [COUNT-1:0];
+    assign state_valid_d = pipe_in_valid_i;
+    assign state_d = pipe_in_ctrl_i;
 
-    assign state_valid0_d = pipe_in_valid_i;
-    assign state_valid1_d = state_valid0_q;
-    assign state_valid2_d = state_valid1_q;
-
-    assign state0_d = pipe_in_ctrl_i;
-    assign state1_d = state0_q;
-    assign state2_d = state1_q;
-
-    assign op1_d = pipe_in_op1_i;
-    assign op2_d = pipe_in_op2_i;
-    assign op3_d = pipe_in_op3_i;
+    assign vs1_d = pipe_in_op2_i;
+    assign vs2_d = pipe_in_op1_i;
+    assign vd_d = pipe_in_op3_i;
 
     always_ff @(posedge clk_i or negedge async_rst_ni) begin
         if (~async_rst_ni) begin
-            state_valid2_q <= 1'b0;
+            state_valid_q <= 1'b0;
         end else if (~sync_rst_ni) begin
-            state_valid2_q <= 1'b0;
+            state_valid_q <= 1'b0;
         end else if (state_ready) begin
-            state_valid2_q <= state_valid2_d;
+            state_valid_q <= state_valid_d;
         end
+        state_q <= state_d;
 
-        state_valid0_q <= state_valid0_d;
-        state_valid1_q <= state_valid1_d;
-
-        state0_q <= state0_d;
-        state1_q <= state1_d;
-        state2_q <= state2_d;
-
-        op1_q <= op1_d;
-        op2_q <= op2_d;
-        op3_q <= op3_d;
-        intermediate0_q <= intermediate0_d;
-        intermediate1_q <= intermediate1_d;
+        vs1_q <= vs1_d;
+        vs2_q <= vs2_d;
+        vd_q <= vd_d;
         res_q <= res_d;
     end
-    assign state_ready = ~state_valid2_q | pipe_out_ready_i;
+    assign state_ready = ~state_valid_q | pipe_out_ready_i;
 
     assign pipe_in_ready_o = state_ready;
-    assign pipe_out_valid_o = state_valid2_q;
-    assign pipe_out_ctrl_o = state2_q;
+    assign pipe_out_valid_o = state_valid_q;
+    assign pipe_out_ctrl_o = state_q;
 
     assign pipe_out_res_o = res_q;
     assign pipe_out_mask_o = mask;
 
-    always_comb begin
-        intermediate0_d[0] = signed'(op2_d[BF16_OP_W/2-1:0]) * signed'(op1_d[BF16_OP_W/2-1:0]);
-        intermediate0_d[1] = signed'(op2_d[BF16_OP_W-1:BF16_OP_W/2]) * signed'(op1_d[BF16_OP_W-1:BF16_OP_W/2]);
+    logic ivalid, oready, flush;
+    logic iready_lo, ovalid_lo, iready_hi, ovalid_hi;
+    logic [2:0][31:0] ops_lo, ops_hi;
+    logic [31:0] result_lo, result_hi;
 
-        intermediate1_d[0] = signed'(intermediate0_q[0][15:0]) + signed'(op3_q[BF16_OP_W/2-1:0]);
-        intermediate1_d[1] = signed'(intermediate0_q[1][15:0]) + signed'(op3_q[BF16_OP_W-1:BF16_OP_W/2]);
+    assign ops_lo[0] = { vs1_d[15:0], 16'b0 };
+    assign ops_lo[1] = { vs2_d[15:0], 16'b0 };
+    assign ops_lo[2] = { vd_d[15:0], 16'b0 };
 
-        res_d = { intermediate1_q[1][15:0], intermediate1_q[0][15:0] };
-        mask = 'b1111;
-    end
+    assign ops_hi[0] = { vs1_d[31:16], 16'b0 };
+    assign ops_hi[1] = { vs2_d[31:16], 16'b0 };
+    assign ops_hi[2] = { vd_d[31:16], 16'b0 };
+
+    assign res_d = { result_hi[31:16], result_lo[31:16] };
+    assign mask = 'b1111;
+
+    assign ivalid = 1;
+    assign oready = 1;
+    assign flush = 0;
+
+    fpnew_fma #() fma0 (
+          .clk_i           ( clk              )
+        , .rst_ni          ( async_rst_ni     )
+        // input
+        , .operands_i      ( ops_lo           )
+        , .is_boxed_i      ( 3'b111           )
+        , .rnd_mode_i      ( fpnew_pkg::RNE   )
+        , .op_i            ( fpnew_pkg::FMADD )
+        , .op_mod_i        ( 1'b0             )
+        , .tag_i           ( 1'b0             )
+        , .mask_i          ( 1'b0             )
+        , .aux_i           ( 1'b0             )
+        // handshake input
+        , .in_valid_i      ( ivalid           )
+        , .in_ready_o      ( iready_lo        )
+        , .flush_i         ( flush            )
+        // output
+        , .result_o        ( result_lo        )
+        , .status_o        (                  )
+        , .extension_bit_o (                  )
+        , .tag_o           (                  )
+        , .mask_o          (                  )
+        , .aux_o           (                  )
+        // handshake output
+        , .out_valid_o     ( ovalid_lo        )
+        , .out_ready_i     ( oready           )
+        // misc
+        , .busy_o          (                  )
+        , .reg_ena_i       (                  )
+    );
+
+    fpnew_fma #() fma1 (
+          .clk_i           ( clk              )
+        , .rst_ni          ( async_rst_ni     )
+        // input
+        , .operands_i      ( ops_hi           )
+        , .is_boxed_i      ( 3'b111           )
+        , .rnd_mode_i      ( fpnew_pkg::RNE   )
+        , .op_i            ( fpnew_pkg::FMADD )
+        , .op_mod_i        ( 1'b0             )
+        , .tag_i           ( 1'b0             )
+        , .mask_i          ( 1'b0             )
+        , .aux_i           ( 1'b0             )
+        // handshake input
+        , .in_valid_i      ( ivalid           )
+        , .in_ready_o      ( iready_hi        )
+        , .flush_i         ( flush            )
+        // output
+        , .result_o        ( result_hi        )
+        , .status_o        (                  )
+        , .extension_bit_o (                  )
+        , .tag_o           (                  )
+        , .mask_o          (                  )
+        , .aux_o           (                  )
+        // handshake output
+        , .out_valid_o     ( ovalid_hi        )
+        , .out_ready_i     ( oready           )
+        // misc
+        , .busy_o          (                  )
+        , .reg_ena_i       (                  )
+    );
 endmodule
