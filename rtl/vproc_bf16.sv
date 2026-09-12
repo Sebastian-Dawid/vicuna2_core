@@ -48,14 +48,17 @@ module vproc_bf16 #(
     assign vs2_d = pipe_in_op1_i;
     assign vd_d = pipe_in_op3_i;
 
-    always_ff @(posedge clk_i or negedge async_rst_ni) begin
+    always_ff @(posedge clk_i, negedge async_rst_ni) begin
         if (~async_rst_ni) begin
             state_valid_q <= 1'b0;
         end else if (~sync_rst_ni) begin
             state_valid_q <= 1'b0;
-        end else if (state_ready) begin
-            state_valid_q <= state_valid_d;
+        end else begin
+            state_valid_q <= state_ready & state_valid_d;
         end
+    end
+
+    always_ff @(posedge clk_i) begin
         state_q <= state_d;
 
         vs1_q <= vs1_d;
