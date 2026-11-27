@@ -28,16 +28,16 @@ module vproc_bf16 #(
     output logic  [BF16_OP_W  -1:0] pipe_out_res_o,
     output logic  [BF16_OP_W/8-1:0] pipe_out_mask_o
 );
-
+    localparam FMA_INSTANCES = BF16_OP_W/16;
     import vproc_pkg::*;
 
     logic state_ready;
     logic state_valid_q, state_valid_d;
     CTRL_T state_q, state_d;
 
-    logic [BF16_OP_W  -1:0] vs1_q, vs1_d;
-    logic [BF16_OP_W  -1:0] vs2_q, vs2_d;
-    logic [BF16_OP_W  -1:0] vd_q, vd_d;
+    logic [BF16_OP_W  -1:0] vs1_d;
+    logic [BF16_OP_W  -1:0] vs2_d;
+    logic [BF16_OP_W  -1:0] vd_d;
     logic [BF16_OP_W  -1:0] res_q, res_d;
     logic [BF16_OP_W/8-1:0] mask;
 
@@ -60,10 +60,6 @@ module vproc_bf16 #(
 
     always_ff @(posedge clk_i) begin
         state_q <= state_d;
-
-        vs1_q <= vs1_d;
-        vs2_q <= vs2_d;
-        vd_q <= vd_d;
         res_q <= res_d;
     end
     assign state_ready = ~state_valid_q | pipe_out_ready_i;
@@ -76,84 +72,60 @@ module vproc_bf16 #(
     assign pipe_out_mask_o = mask;
 
     logic ivalid, oready, flush;
-    logic iready_lo, ovalid_lo, iready_hi, ovalid_hi;
-    logic [2:0][31:0] ops_lo, ops_hi;
-    logic [31:0] result_lo, result_hi;
-
-    assign ops_lo[0] = { vs1_d[15:0], 16'b0 };
-    assign ops_lo[1] = { vs2_d[15:0], 16'b0 };
-    assign ops_lo[2] = { vd_d[15:0], 16'b0 };
-
-    assign ops_hi[0] = { vs1_d[31:16], 16'b0 };
-    assign ops_hi[1] = { vs2_d[31:16], 16'b0 };
-    assign ops_hi[2] = { vd_d[31:16], 16'b0 };
-
-    assign res_d = { result_hi[31:16], result_lo[31:16] };
-    assign mask = 'b1111;
+    // outermost index runs from high operand bits to low
+    logic [FMA_INSTANCES-1:0][2:0][31:0] ops;
+    logic [FMA_INSTANCES-1:0][31:0] results;
 
     assign ivalid = 1;
     assign oready = 1;
     assign flush = 0;
 
-    fpnew_fma #() fma0 (
-          .clk_i           ( clk              )
-        , .rst_ni          ( async_rst_ni     )
-        // input
-        , .operands_i      ( ops_lo           )
-        , .is_boxed_i      ( 3'b111           )
-        , .rnd_mode_i      ( fpnew_pkg::RNE   )
-        , .op_i            ( fpnew_pkg::FMADD )
-        , .op_mod_i        ( 1'b0             )
-        , .tag_i           ( 1'b0             )
-        , .mask_i          ( 1'b0             )
-        , .aux_i           ( 1'b0             )
-        // handshake input
-        , .in_valid_i      ( ivalid           )
-        , .in_ready_o      ( iready_lo        )
-        , .flush_i         ( flush            )
-        // output
-        , .result_o        ( result_lo        )
-        , .status_o        (                  )
-        , .extension_bit_o (                  )
-        , .tag_o           (                  )
-        , .mask_o          (                  )
-        , .aux_o           (                  )
-        // handshake output
-        , .out_valid_o     ( ovalid_lo        )
-        , .out_ready_i     ( oready           )
-        // misc
-        , .busy_o          (                  )
-        , .reg_ena_i       (                  )
-    );
+    genvar i;
+    generate
+        for (i=0; i < FMA_INSTANCES; i++) begin
+            localparam MASK_BIT_LO = i * 2;
+            localparam MASK_BIT_HI = i * 2 + 1;
+            localparam RES_BIT_LO = i * 16;
+            localparam RES_BIT_HI = i * 16 + 15;
 
-    fpnew_fma #() fma1 (
-          .clk_i           ( clk              )
-        , .rst_ni          ( async_rst_ni     )
-        // input
-        , .operands_i      ( ops_hi           )
-        , .is_boxed_i      ( 3'b111           )
-        , .rnd_mode_i      ( fpnew_pkg::RNE   )
-        , .op_i            ( fpnew_pkg::FMADD )
-        , .op_mod_i        ( 1'b0             )
-        , .tag_i           ( 1'b0             )
-        , .mask_i          ( 1'b0             )
-        , .aux_i           ( 1'b0             )
-        // handshake input
-        , .in_valid_i      ( ivalid           )
-        , .in_ready_o      ( iready_hi        )
-        , .flush_i         ( flush            )
-        // output
-        , .result_o        ( result_hi        )
-        , .status_o        (                  )
-        , .extension_bit_o (                  )
-        , .tag_o           (                  )
-        , .mask_o          (                  )
-        , .aux_o           (                  )
-        // handshake output
-        , .out_valid_o     ( ovalid_hi        )
-        , .out_ready_i     ( oready           )
-        // misc
-        , .busy_o          (                  )
-        , .reg_ena_i       (                  )
-    );
+            assign ops[i][0] = { vs1_d[RES_BIT_HI:RES_BIT_LO], 16'b0 };
+            assign ops[i][1] = { vs2_d[RES_BIT_HI:RES_BIT_LO], 16'b0 };
+            assign ops[i][2] = { vd_d[RES_BIT_HI:RES_BIT_LO], 16'b0 };
+
+            logic iready, ovalid;
+            fpnew_fma #() fma (
+                  .clk_i           ( clk_i            )
+                , .rst_ni          ( async_rst_ni     )
+                // input
+                , .operands_i      ( ops[i]           )
+                , .is_boxed_i      ( 3'b111           )
+                , .rnd_mode_i      ( fpnew_pkg::RNE   )
+                , .op_i            ( fpnew_pkg::FMADD )
+                , .op_mod_i        ( 1'b0             )
+                , .tag_i           ( 1'b0             )
+                , .mask_i          ( 1'b0             )
+                , .aux_i           ( 1'b0             )
+                // handshake input
+                , .in_valid_i      ( ivalid           )
+                , .in_ready_o      ( iready           )
+                , .flush_i         ( flush            )
+                // output
+                , .result_o        ( results[i]       )
+                , .status_o        (                  )
+                , .extension_bit_o (                  )
+                , .tag_o           (                  )
+                , .mask_o          (                  )
+                , .aux_o           (                  )
+                // handshake output
+                , .out_valid_o     ( ovalid           )
+                , .out_ready_i     ( oready           )
+                // misc
+                , .busy_o          (                  )
+                , .reg_ena_i       (                  )
+            );
+
+            assign res_d[RES_BIT_HI:RES_BIT_LO] = results[i][31:16];
+            assign mask[MASK_BIT_HI:MASK_BIT_LO] = 'b11;
+        end
+    endgenerate
 endmodule
